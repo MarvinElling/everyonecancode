@@ -1,15 +1,16 @@
 ###############################################################################
-## Sprint 5: Advanced AI Recommendations
-## Feature 1: Get Gen AI Recommendation 
-## User Story 2: Cache Recommendations in the Database
-############################################################################
+## Sprint 7: Advanced Styling in your Web Application
+## Feature 1: Advanced Web App Styling
+## User Story 5: Show spinner when loading recommendations
+###############################################################################
 import os
 import json
 from flask import Flask, render_template, request, redirect, url_for, g
 from database import db, Todo
 from recommendation_engine import RecommendationEngine
 from tab import Tab
-
+from priority import Priority
+from context_processors import inject_current_date
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))   # Get the directory of the this file
@@ -18,6 +19,10 @@ app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///' + os.path.join(basedir, 'to
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
+
+@app.context_processor
+def inject_common_variables():
+    return inject_current_date()
 
 with app.app_context():
     db.create_all()
@@ -28,6 +33,7 @@ def load_data_to_g():
     g.todos = todos 
     g.todo = None
     g.TabEnum = Tab
+    g.PriorityEnum = Priority
     g.selectedTab = Tab.NONE
 
 @app.route("/")
@@ -36,15 +42,16 @@ def index():
 
 @app.route("/add", methods=["POST"])
 def add_todo():
+
     # Get the data from the form
     todo = Todo(
-        name=request.form["todo"],
+        name=request.form["todo"]
     )
 
     # Add the new ToDo to the list
     db.session.add(todo)
     db.session.commit()
-    
+
     # Add the new ToDo to the list
     return redirect(url_for('index'))
 
@@ -54,7 +61,7 @@ def details(id):
     g.selectedTab = Tab.DETAILS
     g.todos = Todo.query.all()
     g.todo = Todo.query.filter_by(id=id).first()
-        
+    
     return render_template('index.html')
 
 # Edit a new ToDo
@@ -104,9 +111,11 @@ def update_todo(id):
     #
     return redirect(url_for('index'))
 
+
 # Delete a ToDo
-@app.route('/remove/<int:id>', methods=["POST"])
+@app.route('/remove/<int:id>', methods=["POST", "GET"])
 def remove_todo(id):
+    g.selectedTab = Tab.NONE
     db.session.delete(Todo.query.filter_by(id=id).first())
     db.session.commit()
     return redirect(url_for('index'))
@@ -137,7 +146,7 @@ async def recommend(id, refresh=False):
         previous_links_str = ", ".join(links)
 
     g.todo.recommendations = await recommendation_engine.get_recommendations(g.todo.name, previous_links_str)
-        
+    
     # Save the recommendations to the database
     try:
         g.todo.recommendations_json = json.dumps(g.todo.recommendations)
@@ -148,6 +157,20 @@ async def recommend(id, refresh=False):
         return
 
     return render_template('index.html')
+
+@app.route('/completed/<int:id>/<complete>', methods=['GET'])
+def completed(id, complete):
+    g.selectedTab = Tab.NONE
+    g.todo = Todo.query.filter_by(id=id).first()
+    if (g.todo != None and complete == "true"):
+        g.todo.completed = True
+    elif (g.todo != None and complete == "false"):
+        g.todo.completed = False
+    #
+    db.session.add(g.todo)
+    db.session.commit()
+    #
+    return redirect(url_for('index'))
 
 
 if __name__ == "__main__":

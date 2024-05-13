@@ -10,12 +10,14 @@ db = SQLAlchemy(model_class=Base)
 class Todo(db.Model):
     id = db.Column(Integer, primary_key=True)
     name = db.Column(String(100), nullable=False)
-    recommendations = []  # non-persistent field
-    recommendations_json = db.Column(db.JSON)
     notes = db.Column(String(100))
     priority = db.Column(Integer, default=0)
     completed = db.Column(Boolean, default=False)
+    recommendations_json = db.Column(db.JSON)   #json serialized version of recommendations for storing in DB
     due_date = db.Column(String(50))
+
+    #transient variables (i.e., not stored in db)
+    recommendations = []   #recommendations as a collection
 
     def __str__(self):
         return self.name
@@ -42,4 +44,5 @@ class Todo(db.Model):
             return "Yes"
         else:    
             return "No"
+
     
